@@ -7,6 +7,7 @@
   const state = {
     datasets: [],
     practiceMode: 'single',
+    roomMode: 'single',
     timeMode: 'elapsed',
     practiceMinutes: 15,
     roomMinutes: 15,
@@ -191,11 +192,29 @@
   }
 
   function updateRoomAmount() {
-    const max = currentDataset('#roomDataset')?.questionCount || 1;
+    const mode = state.roomMode;
+    let max = 1;
+
+    if (mode === 'single') {
+      max = currentDataset('#roomDataset')?.questionCount || 1;
+    } else if (mode === 'one-per-set') {
+      max = Math.max(1, state.datasets.filter(d => d.questionCount > 0).length);
+    } else if (mode === 'all-random') {
+      max = Math.max(1, state.datasets.reduce((sum, d) => sum + d.questionCount, 0));
+    }
+
     $('#roomAmount').max = max;
-    if (+$('#roomAmount').value > max) $('#roomAmount').value = max;
+
+    if (mode === 'one-per-set') {
+      $('#roomAmount').value = max;
+    } else if (+$('#roomAmount').value > max) {
+      $('#roomAmount').value = max;
+    }
+
     $('#roomAmountOut').textContent = $('#roomAmount').value;
     $('#roomMax').textContent = max + ' câu';
+    $('#roomDatasetField').classList.toggle('hidden', mode !== 'single');
+    $('#roomAmount').disabled = mode === 'one-per-set';
   }
 
   function practiceConfig() {
@@ -211,11 +230,12 @@
 
   function roomConfig() {
     return {
-      mode: 'single',
+      mode: state.roomMode,
       datasetId: $('#roomDataset').value,
       amount: +$('#roomAmount').value,
       timeMode: 'countdown',
       minutes: state.roomMinutes,
+      // Server luôn random thứ tự câu hỏi; phòng thi cũng luôn đảo A/B/C/D.
       shuffleAnswers: true,
       instantFeedback: $('#roomFeedback').checked,
     };
@@ -739,6 +759,13 @@
   }));
   $('#practiceDataset').addEventListener('change', updatePracticeAmount);
   $('#practiceAmount').addEventListener('input', () => $('#practiceAmountOut').textContent = $('#practiceAmount').value);
+
+  $('#roomMode .choice').forEach(b => b.addEventListener('click', () => {
+    state.roomMode = b.dataset.mode;
+    $('#roomMode .choice').forEach(x => x.classList.toggle('active', x === b));
+    updateRoomAmount();
+  }));
+
   $('#roomDataset').addEventListener('change', updateRoomAmount);
   $('#roomAmount').addEventListener('input', () => $('#roomAmountOut').textContent = $('#roomAmount').value);
 
