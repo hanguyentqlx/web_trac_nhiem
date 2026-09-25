@@ -274,8 +274,15 @@ function roomPublic(r) {
     config: clone(r.config),
     quiz: r.quiz ? r.quiz.map(publicQuestion) : null,
     participants: r.participants.map(p => ({
-      id: p.id, name: p.name, isHost: p.id === r.hostId, status: p.status,
-      score: p.score, total: p.total, elapsedSeconds: p.elapsedSeconds,
+      id: p.id,
+      name: p.name,
+      isHost: p.id === r.hostId,
+      status: p.status,
+      score: Number.isFinite(p.score) ? p.score : 0,
+      total: Number.isFinite(p.total) ? p.total : (r.quiz?.length || null),
+      answered: Number.isFinite(p.answered) ? p.answered : 0,
+      progress: p.total ? Math.round(((p.answered || 0) / p.total) * 100) : 0,
+      elapsedSeconds: p.elapsedSeconds,
     })),
   };
 }
@@ -294,6 +301,62 @@ function player(socket, room) {
   return p;
 }
 
+function prepareParticipantForQuiz(p, total) {
+  p.status = 'doing';
+  p.score = 0;
+  p.total = total;
+  p.answered = 0;
+  p.answers = Array(total).fill(null);
+  p.submittedAnswers = Array(total).fill(false);
+  p.answerCorrect = Array(total).fill(false);
+  p.elapsedSeconds = null;
+  p.review = null;
+}
+
+function recordRoomAnswer(room, p, rawIndex, rawSelected) {
+  if (!room?.quiz?.length) throw new Error('Phòng chưa bắt đầu.');
+  const index = clamp(rawIndex, 0, room.quiz.length - 1);
+  const q = room.quiz[index];
+
+  if (!Array.isArray(p.answers) || p.answers.length !== room.quiz.length) {
+    prepareParticipantForQuiz(p, room.quiz.length);
+  }
+
+  if (p.submittedAnswers[index]) {
+    return {
+      index,
+      correct: !!p.answerCorrect[index],
+      correctAnswer: q.correct,
+      score: p.score,
+      answered: p.answered,
+      total: p.total,
+      alreadyRecorded: true,
+    };
+  }
+
+  const selected = rawSelected == null || rawSelected === '' ? null : String(rawSelected);
+  if (selected !== null && !q.options.includes(selected)) {
+    throw new Error('Đáp án không hợp lệ.');
+  }
+
+  const correct = selected === q.correct;
+  p.answers[index] = selected;
+  p.submittedAnswers[index] = true;
+  p.answerCorrect[index] = correct;
+  p.answered += 1;
+  if (correct) p.score += 1;
+
+  return {
+    index,
+    correct,
+    correctAnswer: q.correct,
+    score: p.score,
+    answered: p.answered,
+    total: p.total,
+    alreadyRecorded: false,
+  };
+}
+
 io.on('connection', socket => {
   socket.on('room:create', (payload = {}, ack) => {
     try {
@@ -304,7 +367,7 @@ io.on('connection', socket => {
       const r = {
         code, status: 'waiting', hostId: id, createdAt: now, updatedAt: now, startedAt: null,
         config: normalizeConfig(payload.config || {}, true), quiz: null,
-        participants: [{ id, name, status: 'waiting', score: null, total: null, elapsedSeconds: null }],
+        participants: [{ id, name, status: 'waiting', score: 0, total: null, answered: 0, elapsedSeconds: null }],
       };
       rooms.set(code, r);
       socket.data.playerId = id; socket.data.roomCode = code; socket.join(code);
@@ -321,7 +384,7 @@ io.on('connection', socket => {
       if (!id || !name) throw new Error('Hãy nhập tên.');
       let p = r.participants.find(x => x.id === id);
       if (p) { p.name = name; p.status = 'waiting'; }
-      else r.participants.push({ id, name, status: 'waiting', score: null, total: null, elapsedSeconds: null });
+      else r.participants.push({ id, name, status: 'waiting', score: 0, total: null, answered: 0, elapsedSeconds: null });
       socket.data.playerId = id; socket.data.roomCode = code; socket.join(code);
       ackOk(ack, { room: roomPublic(r) }); emitRoom(r);
     } catch (e) { ackFail(ack, e); }
@@ -348,7 +411,7 @@ io.on('connection', socket => {
       if (r.status !== 'waiting') return ackOk(ack, { room: roomPublic(r) });
       r.quiz = buildQuiz(r.config, true);
       r.status = 'started'; r.startedAt = Date.now();
-      r.participants.forEach(x => x.status = 'doing');
+      r.participants.forEach(x => prepareParticipantForQuiz(x, r.quiz.length));
       ackOk(ack, { room: roomPublic(r) }); emitRoom(r);
     } catch (e) { ackFail(ack, e); }
   });
@@ -357,12 +420,36 @@ io.on('connection', socket => {
     try {
       const r = rooms.get(normalizeCode(payload.code));
       if (!r?.quiz) throw new Error('Phòng chưa bắt đầu.');
-      player(socket, r);
+      const p = player(socket, r);
       if (!r.config.instantFeedback) throw new Error('Phòng này không bật xem đúng/sai ngay.');
-      const q = r.quiz[clamp(payload.index, 0, r.quiz.length - 1)];
-      const selected = String(payload.selected || '');
-      if (!q.options.includes(selected)) throw new Error('Đáp án không hợp lệ.');
-      ackOk(ack, { correct: selected === q.correct, correctAnswer: q.correct });
+      const result = recordRoomAnswer(r, p, payload.index, payload.selected);
+      ackOk(ack, {
+        correct: result.correct,
+        correctAnswer: result.correctAnswer,
+        score: result.score,
+        answered: result.answered,
+        total: result.total,
+      });
+      emitRoom(r);
+    } catch (e) { ackFail(ack, e); }
+  });
+
+  socket.on('room:answer', (payload = {}, ack) => {
+    try {
+      const r = rooms.get(normalizeCode(payload.code));
+      if (!r?.quiz) throw new Error('Phòng chưa bắt đầu.');
+      const p = player(socket, r);
+      const result = recordRoomAnswer(r, p, payload.index, payload.selected);
+      ackOk(ack, {
+        recorded: true,
+        score: result.score,
+        answered: result.answered,
+        total: result.total,
+        ...(r.config.instantFeedback
+          ? { correct: result.correct, correctAnswer: result.correctAnswer }
+          : {}),
+      });
+      emitRoom(r);
     } catch (e) { ackFail(ack, e); }
   });
 
@@ -374,8 +461,15 @@ io.on('connection', socket => {
       if (p.status === 'finished' && p.review) {
         return ackOk(ack, { room: roomPublic(r), result: { score: p.score, total: p.total, elapsedSeconds: p.elapsedSeconds, review: p.review } });
       }
-      const result = scoreQuiz(r.quiz, payload.answers);
-      p.status = 'finished'; p.score = result.score; p.total = result.total; p.review = result.review;
+      const submitted = Array.isArray(payload.answers) ? payload.answers : [];
+      for (let i = 0; i < r.quiz.length; i++) {
+        if (!p.submittedAnswers?.[i]) {
+          const selected = typeof submitted[i] === 'string' ? submitted[i] : null;
+          recordRoomAnswer(r, p, i, selected);
+        }
+      }
+      const result = scoreQuiz(r.quiz, p.answers);
+      p.status = 'finished'; p.score = result.score; p.total = result.total; p.answered = result.total; p.review = result.review;
       p.elapsedSeconds = Math.max(0, Math.min(r.config.minutes * 60, Math.floor((Date.now() - r.startedAt) / 1000)));
       if (r.participants.every(x => x.status === 'finished')) r.status = 'finished';
       ackOk(ack, { room: roomPublic(r), result: { ...result, elapsedSeconds: p.elapsedSeconds } });
