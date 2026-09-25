@@ -64,3 +64,140 @@ body.dark{--bg:#111421;--card:#1d2135;--text:#f7f8ff;--muted:#b0b6cc;--line:#343
   .quiz-actions{position:fixed;z-index:30;left:0;right:0;bottom:0;margin:0;padding:10px max(11px,env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(11px,env(safe-area-inset-left));grid-template-columns:100px 1fr;background:rgba(245,247,255,.96);border-top:1px solid var(--line);backdrop-filter:blur(16px)}.dark .quiz-actions{background:rgba(17,20,33,.96)}
   .result-actions{display:grid}.result-actions button{width:100%}
 }
+
+
+.live-ranking-wrap{
+  max-width:900px;
+  margin:12px auto 0;
+  background:rgba(255,255,255,.94);
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:12px;
+  box-shadow:0 10px 26px rgba(59,62,113,.07);
+}
+.live-ranking-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+}
+.live-ranking-head span b,
+.live-ranking-head span small{
+  display:block;
+}
+.live-ranking-head span small{
+  color:var(--muted);
+  font-size:10px;
+  margin-top:2px;
+}
+.live-ranking-head>strong{
+  background:var(--soft);
+  color:var(--primary);
+  border-radius:10px;
+  padding:7px 10px;
+  font-size:12px;
+  white-space:nowrap;
+}
+.live-ranking{
+  display:flex;
+  gap:8px;
+  overflow-x:auto;
+  padding:1px 1px 4px;
+  scroll-snap-type:x proximity;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+}
+.live-ranking::-webkit-scrollbar{display:none}
+.live-rank-card{
+  min-width:168px;
+  flex:0 0 auto;
+  scroll-snap-align:start;
+  display:grid;
+  grid-template-columns:34px minmax(0,1fr) auto;
+  grid-template-areas:
+    "place name score"
+    "place progress progress";
+  align-items:center;
+  gap:3px 8px;
+  padding:10px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:#f8f9fc;
+}
+.live-rank-card.me{
+  border-color:#aeb0f2;
+  background:var(--soft);
+  box-shadow:inset 0 0 0 1px rgba(91,92,226,.08);
+}
+.live-rank-place{
+  grid-area:place;
+  font-weight:950;
+  font-size:16px;
+  text-align:center;
+}
+.live-rank-name{
+  grid-area:name;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:12px;
+  font-weight:850;
+}
+.live-rank-name small{
+  display:block;
+  color:var(--primary);
+  font-size:9px;
+  margin-top:1px;
+}
+.live-rank-card>strong{
+  grid-area:score;
+  text-align:right;
+  color:var(--primary);
+  font-size:18px;
+  line-height:1;
+}
+.live-rank-card>strong small{
+  display:block;
+  color:var(--muted);
+  font-size:8px;
+  margin-top:3px;
+}
+.live-rank-progress{
+  grid-area:progress;
+  color:var(--muted);
+  font-size:9px;
+  text-align:right;
+}
+.rank-row.me{
+  outline:2px solid rgba(91,92,226,.22);
+  background:var(--soft);
+}
+.rank-row span small{
+  display:block;
+  color:var(--muted);
+  font-size:9px;
+  margin-top:2px;
+}
+.dark .live-ranking-wrap{background:#1d2135}
+.dark .live-rank-card{background:#262b43}
+.dark .live-rank-card.me{background:#292e55}
+
+@media(max-width:720px){
+  .live-ranking-wrap{
+    margin-top:10px;
+    border-radius:15px;
+    padding:10px;
+  }
+  .live-ranking-head{
+    margin-bottom:8px;
+  }
+  .live-ranking-head span b{font-size:13px}
+  .live-rank-card{
+    min-width:150px;
+    padding:9px;
+    grid-template-columns:30px minmax(0,1fr) auto;
+  }
+  .live-rank-card>strong{font-size:17px}
+}
