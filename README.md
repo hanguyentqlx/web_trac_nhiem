@@ -103,3 +103,35 @@ Sao chép `.env.example` nếu cần cấu hình:
 Có thể deploy lên VPS, Railway, Render hoặc dịch vụ Node.js hỗ trợ WebSocket.
 
 Phòng thi đang lưu trong RAM nên sẽ mất khi restart server. Bộ câu hỏi nằm trên filesystem của server. Nếu deploy ở nền tảng filesystem tạm thời, nên gắn persistent disk hoặc chuyển question bank sang database.
+
+
+## Thêm bộ đề trực tiếp vào data/source
+
+Ba file `questions-01.csv`, `questions-02.csv`, `questions-03.csv` được ghép thành bộ đề mặc định **Chủ nghĩa xã hội khoa học IV**.
+
+Các file CSV khác bạn chép vào:
+
+```text
+data/source/
+```
+
+sẽ được nhận là **một bộ đề riêng cho mỗi file**. Tên bộ đề lấy từ tên file. Sau khi server đã chạy phiên bản mới, chỉ cần tải lại trang web để danh sách đề được quét lại.
+
+Ví dụ:
+
+```text
+data/source/kinh-te-chinh-tri.csv
+data/source/tu-tuong-ho-chi-minh.csv
+```
+
+sẽ xuất hiện thành 2 bộ đề riêng.
+
+## Âm thanh
+
+Đặt các file sau vào `public/sounds/`:
+
+- `click.mp3`
+- `correct.mp3`
+- `wrong.mp3`
+
+Frontend preload và decode âm thanh bằng Web Audio để giảm độ trễ khi thao tác.
