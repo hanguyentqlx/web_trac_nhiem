@@ -721,7 +721,7 @@
     if (control && !control.disabled) playClick();
   }, { passive: true });
 
-  $('[data-go]').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => {
     stopTimer();
     if (b.dataset.go === 'home') {
       state.quiz = [];
