@@ -87,7 +87,7 @@
           </div>
         </div>
 
-        <label class="toggle"><span><b>Đảo thứ tự đáp án</b><small>Mỗi lượt có thứ tự A/B/C/D khác nhau</small></span><input id="practiceShuffle" type="checkbox" checked><i></i></label>
+        <label class="toggle"><span><b>Đảo thứ tự đáp án</b><small>Câu hỏi luôn random; bật mục này để A/B/C/D cũng đổi thứ tự.</small></span><input id="practiceShuffle" type="checkbox" checked><i></i></label>
         <button class="primary full" id="startPractice">Bắt đầu làm bài →</button>
       </div>
     </section>
@@ -110,7 +110,14 @@
         </div>
 
         <div id="createRoomPanel">
-          <div class="field">
+          <label>Chế độ lấy câu hỏi</label>
+          <div class="choice-grid" id="roomMode">
+            <button class="choice active" data-mode="single">Một bộ đề<small>Random câu trong một bộ</small></button>
+            <button class="choice" data-mode="one-per-set">Mỗi đề 1 câu<small>Random 1 câu từ từng bộ</small></button>
+            <button class="choice" data-mode="all-random">Random tổng hợp<small>Random từ tất cả các bộ</small></button>
+          </div>
+
+          <div class="field" id="roomDatasetField">
             <label for="roomDataset">Bộ đề</label>
             <select id="roomDataset"></select>
           </div>
@@ -118,6 +125,7 @@
             <div class="label-row"><label for="roomAmount">Số câu</label><output id="roomAmountOut">20</output></div>
             <input type="range" id="roomAmount" min="1" value="20">
             <div class="range-hints"><span>1 câu</span><span id="roomMax">45 câu</span></div>
+            <p class="hint">Thứ tự câu hỏi luôn được random lại mỗi lần tạo phòng.</p>
           </div>
           <div class="field">
             <label>Thời gian làm bài</label>
@@ -211,6 +219,6 @@
   <div id="toast" class="toast"></div>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/room-api.js"></script>
-  <script src="/app.js?v=20260925-2"></script>
+  <script src="/app.js?v=20260925-3"></script>
 </body>
 </html>
