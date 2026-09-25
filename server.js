@@ -65,28 +65,86 @@ function parseCsv(text) {
   return rows;
 }
 
-function loadBuiltIn() {
-  const files = fs.existsSync(SOURCE_DIR)
-    ? fs.readdirSync(SOURCE_DIR).filter(x => x.endsWith('.csv')).sort()
-    : [];
+const DEFAULT_SOURCE_FILES = new Set([
+  'questions-01.csv',
+  'questions-02.csv',
+  'questions-03.csv',
+]);
+
+function questionsFromCsvFile(file) {
+  const rows = parseCsv(fs.readFileSync(path.join(SOURCE_DIR, file), 'utf8'));
   const questions = [];
   let id = 1;
-  for (const file of files) {
-    const rows = parseCsv(fs.readFileSync(path.join(SOURCE_DIR, file), 'utf8'));
-    for (const cols of rows.slice(1)) {
-      if (cols.length < 5) continue;
-      const question = safe(cols[1], 4000);
-      const correct = safe(cols[2], 2000);
-      const wrong = cols.slice(3).map(x => safe(x, 2000)).filter(Boolean);
-      if (question && correct && wrong.length) questions.push({ id: id++, question, correct, wrong });
+
+  for (const cols of rows.slice(1)) {
+    if (cols.length < 5) continue;
+    const question = safe(cols[1], 4000);
+    const correct = safe(cols[2], 2000);
+    const wrong = cols.slice(3).map(x => safe(x, 2000)).filter(Boolean);
+    if (question && correct && wrong.length) {
+      questions.push({ id: id++, question, correct, wrong });
     }
   }
-  return {
-    id: 'cnxhkh-iv',
-    name: 'Chủ nghĩa xã hội khoa học IV',
-    builtin: true,
-    questions,
-  };
+  return questions;
+}
+
+function sourceName(file) {
+  return path.basename(file, path.extname(file))
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function sourceId(file) {
+  return 'csv-' + crypto.createHash('sha1').update(file).digest('hex').slice(0, 12);
+}
+
+function loadSourceDatasets() {
+  const files = fs.existsSync(SOURCE_DIR)
+    ? fs.readdirSync(SOURCE_DIR)
+        .filter(x => x.toLowerCase().endsWith('.csv'))
+        .sort((a, b) => a.localeCompare(b, 'vi'))
+    : [];
+
+  const defaultFiles = files.filter(file => DEFAULT_SOURCE_FILES.has(file));
+  const customFiles = files.filter(file => !DEFAULT_SOURCE_FILES.has(file));
+  const result = [];
+
+  if (defaultFiles.length) {
+    const questions = [];
+    let id = 1;
+    for (const file of defaultFiles) {
+      for (const q of questionsFromCsvFile(file)) {
+        questions.push({ ...q, id: id++ });
+      }
+    }
+    result.push({
+      id: 'cnxhkh-iv',
+      name: 'Chủ nghĩa xã hội khoa học IV',
+      builtin: true,
+      source: 'csv',
+      sourceFiles: defaultFiles,
+      questions,
+    });
+  }
+
+  for (const file of customFiles) {
+    const questions = questionsFromCsvFile(file);
+    if (!questions.length) {
+      console.warn(`Bỏ qua CSV không có câu hỏi hợp lệ: ${file}`);
+      continue;
+    }
+    result.push({
+      id: sourceId(file),
+      name: sourceName(file),
+      builtin: true,
+      source: 'csv',
+      sourceFiles: [file],
+      questions,
+    });
+  }
+
+  return result;
 }
 
 function loadExtras() {
@@ -98,7 +156,14 @@ function loadExtras() {
   }
 }
 
-let datasets = [loadBuiltIn(), ...loadExtras()];
+let datasets = [];
+
+function refreshDatasets() {
+  datasets = [...loadSourceDatasets(), ...loadExtras()];
+  return datasets;
+}
+
+refreshDatasets();
 
 function saveExtras() {
   const extra = datasets.filter(x => !x.builtin);
@@ -176,6 +241,7 @@ function canMutate(req) {
 }
 
 app.get('/api/health', (req, res) => {
+  refreshDatasets();
   res.json({
     ok: true,
     datasets: datasets.length,
@@ -185,6 +251,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.get('/api/datasets', (req, res) => {
+  refreshDatasets();
   res.json({
     datasets: datasets.map(meta),
     totalQuestions: datasets.reduce((s, d) => s + d.questions.length, 0),
@@ -193,6 +260,7 @@ app.get('/api/datasets', (req, res) => {
 });
 
 app.post('/api/datasets/import', (req, res) => {
+  refreshDatasets();
   if (process.env.ALLOW_DATASET_UPLOAD === 'false') return res.status(403).json({ error: 'Server đã tắt thêm bộ đề.' });
   if (!canMutate(req)) return res.status(401).json({ error: 'Cần ADMIN_KEY.' });
 
@@ -225,6 +293,7 @@ app.delete('/api/datasets/:id', (req, res) => {
 });
 
 app.post('/api/practice/start', (req, res) => {
+  refreshDatasets();
   const config = normalizeConfig(req.body || {});
   const quiz = buildQuiz(config);
   if (!quiz.length) return res.status(400).json({ error: 'Không có câu hỏi.' });
@@ -360,6 +429,7 @@ function recordRoomAnswer(room, p, rawIndex, rawSelected) {
 io.on('connection', socket => {
   socket.on('room:create', (payload = {}, ack) => {
     try {
+      refreshDatasets();
       const id = safe(payload.playerId, 100), name = safe(payload.name, 40);
       if (!id || !name) throw new Error('Hãy nhập tên.');
       const code = roomCode();
