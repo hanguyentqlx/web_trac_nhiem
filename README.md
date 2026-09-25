@@ -13,6 +13,8 @@ Web trắc nghiệm mobile-first, tối ưu Safari/iPhone, chạy bằng Node.js
 - Chủ phòng chọn số câu, thời gian và có/không hiện đúng-sai ngay.
 - Đáp án đúng của phòng thi được giữ ở server và server chấm điểm.
 - Bảng xếp hạng phòng theo điểm và thời gian.
+- **BXH trực tiếp trong lúc thi:** mọi thành viên thấy điểm, thứ hạng và số câu đã làm của nhau ngay sau mỗi câu.
+- Khi tắt “hiện đúng/sai ngay”, server vẫn cập nhật điểm live nhưng không gửi đáp án đúng về client.
 - Import thêm CSV từ giao diện; dữ liệu mới được ghi vào `data/questions.json`.
 
 ## Cấu trúc
