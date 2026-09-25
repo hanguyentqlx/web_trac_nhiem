@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#5b5ce2">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="format-detection" content="telephone=no">
+  <title>QuizLab — Trắc nghiệm realtime</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="bg"></div>
+  <main class="shell">
+    <header class="topbar">
+      <button class="brand" data-go="home"><span>▦</span><b>QuizLab</b></button>
+      <button class="icon-btn" id="themeBtn" aria-label="Đổi giao diện">☾</button>
+    </header>
+
+    <section id="homeView" class="view active">
+      <div class="hero card">
+        <span class="eyebrow">TRẮC NGHIỆM REALTIME</span>
+        <h1>Học nhanh hơn.<br><em>Thi cùng nhau.</em></h1>
+        <p>Luyện tập từ bộ câu hỏi trên server hoặc tạo phòng thi để nhiều người cùng làm một đề.</p>
+        <div class="hero-actions">
+          <button class="primary" id="openPractice">Bắt đầu luyện tập</button>
+          <button class="secondary" id="openRoom">Tạo / vào phòng thi</button>
+        </div>
+      </div>
+
+      <div class="stats" id="stats">
+        <article><span>▦</span><div><b id="statSets">—</b><small>Bộ đề</small></div></article>
+        <article><span>?</span><div><b id="statQuestions">—</b><small>Tổng câu hỏi</small></div></article>
+        <article><span>↻</span><div><b>100%</b><small>Random mỗi lượt</small></div></article>
+        <article><span>⚡</span><div><b>Server</b><small>Phòng thi realtime</small></div></article>
+      </div>
+
+      <section class="section">
+        <div class="section-head">
+          <div><span class="eyebrow">BỘ CÂU HỎI</span><h2>Đang có trên server</h2></div>
+          <label class="secondary upload">＋ Thêm CSV<input type="file" id="csvInput" accept=".csv,text/csv" hidden></label>
+        </div>
+        <div id="datasetGrid" class="dataset-grid"></div>
+      </section>
+    </section>
+
+    <section id="practiceSetupView" class="view">
+      <button class="back" data-go="home">← Trang chủ</button>
+      <div class="setup card">
+        <span class="eyebrow">LUYỆN TẬP</span>
+        <h2>Tạo đề của bạn</h2>
+        <p class="muted">Mỗi lần bắt đầu server sẽ random lại câu hỏi.</p>
+
+        <label>Chế độ</label>
+        <div class="choice-grid" id="practiceMode">
+          <button class="choice active" data-mode="single">Một bộ đề<small>Random trong một bộ</small></button>
+          <button class="choice" data-mode="one-per-set">Mỗi đề 1 câu<small>Tổng hợp tất cả bộ</small></button>
+          <button class="choice" data-mode="all-random">Random tổng hợp<small>Lấy ngẫu nhiên toàn bộ</small></button>
+        </div>
+
+        <div class="field" id="practiceDatasetField">
+          <label for="practiceDataset">Bộ đề</label>
+          <select id="practiceDataset"></select>
+        </div>
+
+        <div class="field">
+          <div class="label-row"><label for="practiceAmount">Số câu</label><output id="practiceAmountOut">20</output></div>
+          <input type="range" id="practiceAmount" min="1" value="20">
+          <div class="range-hints"><span>1 câu</span><span id="practiceMax">45 câu</span></div>
+        </div>
+
+        <div class="field">
+          <label>Thời gian</label>
+          <div class="segmented" id="timeMode">
+            <button class="active" data-time="elapsed">Đếm lên</button>
+            <button data-time="countdown">Đếm ngược</button>
+            <button data-time="none">Không tính</button>
+          </div>
+        </div>
+
+        <div class="field hidden" id="practiceMinutesField">
+          <label>Số phút</label>
+          <div class="stepper">
+            <button id="practiceMinus" type="button">−</button>
+            <strong><span id="practiceMinutesText">15</span> <small>phút</small></strong>
+            <button id="practicePlus" type="button">＋</button>
+          </div>
+        </div>
+
+        <label class="toggle"><span><b>Đảo thứ tự đáp án</b><small>Mỗi lượt có thứ tự A/B/C/D khác nhau</small></span><input id="practiceShuffle" type="checkbox" checked><i></i></label>
+        <button class="primary full" id="startPractice">Bắt đầu làm bài →</button>
+      </div>
+    </section>
+
+    <section id="roomSetupView" class="view">
+      <button class="back" data-go="home">← Trang chủ</button>
+      <div class="setup card">
+        <span class="eyebrow">PHÒNG THI</span>
+        <h2>Thi cùng bạn bè</h2>
+        <p class="muted">Tạo phòng mới hoặc nhập mã 6 ký tự để tham gia.</p>
+
+        <div class="room-tabs" id="roomTabs">
+          <button class="active" data-room-tab="create">＋ Tạo phòng</button>
+          <button data-room-tab="join">🔑 Vào phòng</button>
+        </div>
+
+        <div class="field">
+          <label for="playerName">Tên của bạn</label>
+          <input class="text-input" id="playerName" maxlength="40" placeholder="Nhập tên hiển thị">
+        </div>
+
+        <div id="createRoomPanel">
+          <div class="field">
+            <label for="roomDataset">Bộ đề</label>
+            <select id="roomDataset"></select>
+          </div>
+          <div class="field">
+            <div class="label-row"><label for="roomAmount">Số câu</label><output id="roomAmountOut">20</output></div>
+            <input type="range" id="roomAmount" min="1" value="20">
+            <div class="range-hints"><span>1 câu</span><span id="roomMax">45 câu</span></div>
+          </div>
+          <div class="field">
+            <label>Thời gian làm bài</label>
+            <div class="stepper">
+              <button id="roomMinus" type="button">−</button>
+              <strong><span id="roomMinutesText">15</span> <small>phút</small></strong>
+              <button id="roomPlus" type="button">＋</button>
+            </div>
+          </div>
+          <label class="toggle"><span><b>Hiện đúng / sai ngay</b><small>Tắt để giống phòng thi thật.</small></span><input id="roomFeedback" type="checkbox"><i></i></label>
+          <button class="primary full" id="createRoom">Tạo phòng thi →</button>
+        </div>
+
+        <div id="joinRoomPanel" class="hidden">
+          <div class="field">
+            <label for="roomCodeInput">Mã phòng</label>
+            <input class="code-input" id="roomCodeInput" maxlength="6" placeholder="ABC123" autocomplete="off">
+          </div>
+          <button class="primary full" id="joinRoom">Vào phòng →</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="lobbyView" class="view">
+      <button class="back" id="leaveLobby">← Rời phòng</button>
+      <div class="lobby card">
+        <span class="eyebrow">SẢNH CHỜ</span>
+        <p class="muted">Mã phòng</p>
+        <button class="room-code" id="roomCodeDisplay">------</button>
+        <p class="hint">Chạm vào mã để sao chép</p>
+        <div class="lobby-meta" id="lobbyMeta"></div>
+        <div class="people" id="participantList"></div>
+        <button class="primary full hidden" id="startRoom">Bắt đầu thi →</button>
+        <p class="waiting" id="waitingText">Đang chờ chủ phòng bắt đầu…</p>
+      </div>
+    </section>
+
+    <section id="quizView" class="view">
+      <div class="quiz-top">
+        <button class="back" id="exitQuiz">← Thoát</button>
+        <div class="quiz-stat"><small>ĐIỂM</small><b id="quizScore">0</b></div>
+        <div class="quiz-stat"><small>THỜI GIAN</small><b id="quizTime">00:00</b></div>
+      </div>
+      <div class="progress-meta"><span id="progressText">Câu 1/20</span><span id="progressPercent">5%</span></div>
+      <div class="progress"><i id="progressBar"></i></div>
+      <article class="quiz card">
+        <div class="question-kicker"><span id="questionSet"></span><b id="questionNumber">01</b></div>
+        <h2 id="questionText"></h2>
+        <div id="answers" class="answers"></div>
+        <div id="feedback" class="feedback hidden"></div>
+      </article>
+      <div class="quiz-actions">
+        <button class="secondary" id="skipQuestion">Bỏ qua</button>
+        <button class="primary" id="quizAction" disabled>Kiểm tra đáp án</button>
+      </div>
+    </section>
+
+    <section id="resultView" class="view">
+      <div class="result card">
+        <div class="result-icon">🏆</div>
+        <h1>Hoàn thành!</h1>
+        <p class="muted" id="resultSubtitle"></p>
+        <div class="score-circle"><b id="resultScore">0/0</b><small>ĐIỂM</small></div>
+        <div class="result-grid">
+          <div><b id="resultCorrect">0</b><small>Đúng</small></div>
+          <div><b id="resultAccuracy">0%</b><small>Chính xác</small></div>
+          <div><b id="resultTime">00:00</b><small>Thời gian</small></div>
+        </div>
+        <div id="rankingWrap" class="hidden">
+          <h3>Bảng xếp hạng phòng</h3>
+          <div id="ranking" class="ranking"></div>
+        </div>
+        <div class="result-actions">
+          <button class="primary" data-go="home">Về trang chủ</button>
+          <button class="secondary" id="toggleReview">Xem lại đáp án</button>
+        </div>
+      </div>
+      <div id="reviewList" class="review-list hidden"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/room-api.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
