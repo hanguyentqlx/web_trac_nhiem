@@ -760,9 +760,9 @@
   $('#practiceDataset').addEventListener('change', updatePracticeAmount);
   $('#practiceAmount').addEventListener('input', () => $('#practiceAmountOut').textContent = $('#practiceAmount').value);
 
-  $('#roomMode .choice').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('#roomMode .choice').forEach(b => b.addEventListener('click', () => {
     state.roomMode = b.dataset.mode;
-    $('#roomMode .choice').forEach(x => x.classList.toggle('active', x === b));
+    document.querySelectorAll('#roomMode .choice').forEach(x => x.classList.toggle('active', x === b));
     updateRoomAmount();
   }));
 
