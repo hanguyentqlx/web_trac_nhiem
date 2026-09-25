@@ -172,6 +172,7 @@
     state.startedAt = startedAt || Date.now();
     stopTimer();
     show('quiz');
+    $('#liveRankingWrap')?.classList.toggle('hidden', state.quizType !== 'room');
     renderQuestion();
     state.timer = setInterval(updateTimer, 500);
     updateTimer();
@@ -203,7 +204,8 @@
     $('#progressText').textContent = `Câu ${state.index + 1}/${state.quiz.length}`;
     $('#progressPercent').textContent = pct + '%';
     $('#progressBar').style.width = pct + '%';
-    $('#quizScore').textContent = state.quizType === 'room' && !state.config.instantFeedback ? '—' : state.score;
+    $('#quizScore').textContent = state.score;
+    renderLiveRanking();
 
     const noFeedbackRoom = state.quizType === 'room' && !state.config.instantFeedback;
     $('#quizAction').textContent = noFeedbackRoom
@@ -226,6 +228,21 @@
     const noFeedbackRoom = state.quizType === 'room' && !state.config.instantFeedback;
 
     if (noFeedbackRoom) {
+      const btn = $('#quizAction');
+      btn.disabled = true;
+      try {
+        const res = await roomAPI.answer({
+          code: state.room.code,
+          index: state.index,
+          selected: state.selected,
+        });
+        state.score = res.score ?? state.score;
+        $('#quizScore').textContent = state.score;
+      } catch (e) {
+        toast(e.message);
+        btn.disabled = false;
+        return;
+      }
       if (state.index === state.quiz.length - 1) return finishQuiz();
       state.index++;
       renderQuestion();
@@ -262,7 +279,8 @@
       }
 
       state.checked = true;
-      if (result.correct) state.score++;
+      if (state.quizType === 'room') state.score = result.score ?? state.score;
+      else if (result.correct) state.score++;
       $('#quizScore').textContent = state.score;
 
       const q = state.quiz[state.index];
@@ -287,9 +305,29 @@
     }
   }
 
-  function skipQuestion() {
+  async function skipQuestion() {
     if (state.checked) return;
     state.answers[state.index] = null;
+
+    if (state.quizType === 'room') {
+      const btn = $('#skipQuestion');
+      btn.disabled = true;
+      try {
+        const res = await roomAPI.answer({
+          code: state.room.code,
+          index: state.index,
+          selected: null,
+        });
+        state.score = res.score ?? state.score;
+        $('#quizScore').textContent = state.score;
+      } catch (e) {
+        toast(e.message);
+        btn.disabled = false;
+        return;
+      }
+      btn.disabled = false;
+    }
+
     if (state.index === state.quiz.length - 1) finishQuiz();
     else { state.index++; renderQuestion(); scrollQuizTop(); }
   }
@@ -369,6 +407,44 @@
     `).join('');
   }
 
+  function rankedParticipants() {
+    if (!state.room?.participants) return [];
+    return [...state.room.participants].sort((a, b) =>
+      ((b.score || 0) - (a.score || 0)) ||
+      ((b.answered || 0) - (a.answered || 0)) ||
+      ((a.elapsedSeconds ?? Number.MAX_SAFE_INTEGER) - (b.elapsedSeconds ?? Number.MAX_SAFE_INTEGER)) ||
+      String(a.name).localeCompare(String(b.name), 'vi')
+    );
+  }
+
+  function renderLiveRanking() {
+    const wrap = $('#liveRankingWrap');
+    if (!wrap) return;
+    if (state.quizType !== 'room' || !state.room) {
+      wrap.classList.add('hidden');
+      return;
+    }
+
+    wrap.classList.remove('hidden');
+    const list = rankedParticipants();
+    const myIndex = list.findIndex(p => p.id === state.playerId);
+    $('#myLiveRank').textContent = myIndex >= 0 ? `Hạng #${myIndex + 1}` : '—';
+
+    $('#liveRanking').innerHTML = list.map((p, i) => {
+      const total = p.total || state.quiz.length || 0;
+      const answered = p.answered || 0;
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`;
+      return `
+        <div class="live-rank-card ${p.id === state.playerId ? 'me' : ''}">
+          <span class="live-rank-place">${medal}</span>
+          <span class="live-rank-name">${escapeHtml(p.name)}${p.id === state.playerId ? '<small>Bạn</small>' : ''}</span>
+          <strong>${p.score || 0}<small>điểm</small></strong>
+          <span class="live-rank-progress">${answered}/${total} câu</span>
+        </div>
+      `;
+    }).join('');
+  }
+
   function renderRanking() {
     const wrap = $('#rankingWrap');
     if (state.quizType !== 'room' || !state.room) {
@@ -376,16 +452,19 @@
       return;
     }
     wrap.classList.remove('hidden');
-    const list = [...state.room.participants]
-      .filter(p => p.status === 'finished')
-      .sort((a, b) => (b.score - a.score) || (a.elapsedSeconds - b.elapsedSeconds));
-    $('#ranking').innerHTML = list.length ? list.map((p, i) => `
-      <div class="rank-row">
-        <b>#${i + 1}</b>
-        <span>${escapeHtml(p.name)}${p.id === state.playerId ? ' · Bạn' : ''}</span>
-        <b>${p.score}/${p.total}<small> · ${formatTime(p.elapsedSeconds)}</small></b>
-      </div>
-    `).join('') : '<p class="muted">Đang chờ các thành viên nộp bài…</p>';
+    const list = rankedParticipants();
+    $('#ranking').innerHTML = list.length ? list.map((p, i) => {
+      const status = p.status === 'finished'
+        ? `✓ Đã nộp · ${formatTime(p.elapsedSeconds)}`
+        : `Đang làm · ${p.answered || 0}/${p.total || state.quiz.length} câu`;
+      return `
+        <div class="rank-row ${p.id === state.playerId ? 'me' : ''}">
+          <b>#${i + 1}</b>
+          <span>${escapeHtml(p.name)}${p.id === state.playerId ? ' · Bạn' : ''}<small>${status}</small></span>
+          <b>${p.score || 0}/${p.total || state.quiz.length}</b>
+        </div>
+      `;
+    }).join('') : '<p class="muted">Chưa có dữ liệu xếp hạng.</p>';
   }
 
   function setRoomTab(tab) {
@@ -519,7 +598,15 @@
     }
     if (event.type !== 'update') return;
     state.room = event.room;
-    if (state.quizType === 'room' && state.roomSubmitted) renderRanking();
+    if (state.quizType === 'room') {
+      const me = state.room.participants?.find(p => p.id === state.playerId);
+      if (me) {
+        state.score = me.score || 0;
+        $('#quizScore').textContent = state.score;
+      }
+      renderLiveRanking();
+      if (state.roomSubmitted) renderRanking();
+    }
     if (state.room.status === 'waiting' && $('#lobbyView').classList.contains('active')) renderLobby();
     if (state.room.status === 'started' && !state.roomSubmitted &&
         !$('#quizView').classList.contains('active') && !$('#resultView').classList.contains('active')) {
