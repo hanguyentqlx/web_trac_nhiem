@@ -28,6 +28,55 @@
   };
   localStorage.setItem('quizlab_player_id', state.playerId);
 
+  // Hiệu ứng âm thanh. Chỉ cần đặt 3 file MP3 đúng tên vào public/sounds/.
+  const sound = (() => {
+    const files = {
+      click: '/sounds/click.mp3',
+      correct: '/sounds/correct.mp3',
+      wrong: '/sounds/wrong.mp3',
+    };
+
+    const players = Object.fromEntries(
+      Object.entries(files).map(([name, src]) => {
+        const audio = new Audio();
+        audio.src = src;
+        audio.preload = 'none';
+        audio.playsInline = true;
+        return [name, audio];
+      })
+    );
+
+    let unlocked = false;
+
+    function unlock() {
+      if (unlocked) return;
+      unlocked = true;
+      // iOS Safari chỉ cho phép audio sau tương tác người dùng.
+      // Không ép phát ở đây để tránh nghe tiếng ngoài ý muốn.
+      Object.values(players).forEach(audio => {
+        try { audio.load(); } catch {}
+      });
+    }
+
+    function play(name) {
+      const audio = players[name];
+      if (!audio) return;
+      unlock();
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+        const result = audio.play();
+        if (result?.catch) result.catch(() => {});
+      } catch {}
+    }
+
+    return { play, unlock };
+  })();
+
+  function playClick() { sound.play('click'); }
+  function playCorrect() { sound.play('correct'); }
+  function playWrong() { sound.play('wrong'); }
+
   function show(name) {
     views.forEach(v => v.classList.toggle('active', v.id === name + 'View'));
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -228,6 +277,7 @@
     const noFeedbackRoom = state.quizType === 'room' && !state.config.instantFeedback;
 
     if (noFeedbackRoom) {
+      playClick();
       const btn = $('#quizAction');
       btn.disabled = true;
       try {
@@ -254,6 +304,7 @@
       return;
     }
 
+    playClick();
     if (state.index === state.quiz.length - 1) return finishQuiz();
     state.index++;
     renderQuestion();
@@ -282,6 +333,9 @@
       if (state.quizType === 'room') state.score = result.score ?? state.score;
       else if (result.correct) state.score++;
       $('#quizScore').textContent = state.score;
+
+      if (result.correct) playCorrect();
+      else playWrong();
 
       const q = state.quiz[state.index];
       $$('.answer').forEach((el, i) => {
@@ -636,7 +690,17 @@
     }
   });
 
-  $$('[data-go]').forEach(b => b.addEventListener('click', () => {
+  document.addEventListener('pointerdown', () => sound.unlock(), { once: true, passive: true });
+
+  document.addEventListener('click', event => {
+    const control = event.target.closest(
+      'button, label.toggle, label.upload'
+    );
+    if (!control || control.id === 'quizAction') return;
+    playClick();
+  }, true);
+
+  $('[data-go]').forEach(b => b.addEventListener('click', () => {
     stopTimer();
     if (b.dataset.go === 'home') {
       state.quiz = [];
