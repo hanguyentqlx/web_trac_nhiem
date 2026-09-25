@@ -28,7 +28,7 @@
   };
   localStorage.setItem('quizlab_player_id', state.playerId);
 
-  // Hiệu ứng âm thanh. Chỉ cần đặt 3 file MP3 đúng tên vào public/sounds/.
+  // Âm thanh dùng Web Audio để giảm độ trễ. Chỉ cần đặt 3 file MP3 đúng tên vào public/sounds/.
   const sound = (() => {
     const files = {
       click: '/sounds/click.mp3',
@@ -36,41 +36,68 @@
       wrong: '/sounds/wrong.mp3',
     };
 
-    const players = Object.fromEntries(
-      Object.entries(files).map(([name, src]) => {
-        const audio = new Audio();
-        audio.src = src;
-        audio.preload = 'none';
-        audio.playsInline = true;
-        return [name, audio];
-      })
-    );
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    const context = AudioContextClass ? new AudioContextClass() : null;
+    const buffers = new Map();
+    const loading = new Map();
 
-    let unlocked = false;
+    async function load(name) {
+      if (!context || buffers.has(name)) return buffers.get(name) || null;
+      if (loading.has(name)) return loading.get(name);
 
-    function unlock() {
-      if (unlocked) return;
-      unlocked = true;
-      // iOS Safari chỉ cho phép audio sau tương tác người dùng.
-      // Không ép phát ở đây để tránh nghe tiếng ngoài ý muốn.
-      Object.values(players).forEach(audio => {
-        try { audio.load(); } catch {}
-      });
+      const promise = fetch(files[name], { cache: 'force-cache' })
+        .then(res => {
+          if (!res.ok) throw new Error('missing sound');
+          return res.arrayBuffer();
+        })
+        .then(data => context.decodeAudioData(data.slice(0)))
+        .then(buffer => {
+          buffers.set(name, buffer);
+          loading.delete(name);
+          return buffer;
+        })
+        .catch(() => {
+          loading.delete(name);
+          return null;
+        });
+
+      loading.set(name, promise);
+      return promise;
     }
 
-    function play(name) {
-      const audio = players[name];
-      if (!audio) return;
-      unlock();
+    function preload() {
+      Object.keys(files).forEach(name => load(name));
+    }
+
+    async function unlock() {
+      if (!context) return;
       try {
-        audio.pause();
-        audio.currentTime = 0;
-        const result = audio.play();
-        if (result?.catch) result.catch(() => {});
+        if (context.state === 'suspended') await context.resume();
+      } catch {}
+      preload();
+    }
+
+    async function play(name) {
+      if (!context) return;
+      await unlock();
+      const buffer = buffers.get(name) || await load(name);
+      if (!buffer) return;
+
+      try {
+        const source = context.createBufferSource();
+        const gain = context.createGain();
+        gain.gain.value = name === 'click' ? 0.7 : 1;
+        source.buffer = buffer;
+        source.connect(gain);
+        gain.connect(context.destination);
+        source.start(0);
       } catch {}
     }
 
-    return { play, unlock };
+    // Tải ngay khi mở trang để lần bấm đầu không phải chờ tải/decode MP3.
+    preload();
+
+    return { play, unlock, preload };
   })();
 
   function playClick() { sound.play('click'); }
@@ -277,7 +304,6 @@
     const noFeedbackRoom = state.quizType === 'room' && !state.config.instantFeedback;
 
     if (noFeedbackRoom) {
-      playClick();
       const btn = $('#quizAction');
       btn.disabled = true;
       try {
@@ -304,7 +330,6 @@
       return;
     }
 
-    playClick();
     if (state.index === state.quiz.length - 1) return finishQuiz();
     state.index++;
     renderQuestion();
@@ -690,15 +715,11 @@
     }
   });
 
-  document.addEventListener('pointerdown', () => sound.unlock(), { once: true, passive: true });
-
-  document.addEventListener('click', event => {
-    const control = event.target.closest(
-      'button, label.toggle, label.upload'
-    );
-    if (!control || control.id === 'quizAction') return;
-    playClick();
-  }, true);
+  document.addEventListener('pointerdown', event => {
+    sound.unlock();
+    const control = event.target.closest('button, label.toggle, label.upload');
+    if (control && !control.disabled) playClick();
+  }, { passive: true });
 
   $('[data-go]').forEach(b => b.addEventListener('click', () => {
     stopTimer();
