@@ -201,3 +201,101 @@ body.dark{--bg:#111421;--card:#1d2135;--text:#f7f8ff;--muted:#b0b6cc;--line:#343
   }
   .live-rank-card>strong{font-size:17px}
 }
+
+
+.final-rank{
+  position:relative;
+  overflow:hidden;
+}
+.final-rank-person{
+  min-width:0;
+}
+.final-rank-person>strong{
+  display:block;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.rank-roast{
+  display:inline-block;
+  margin-top:4px;
+  padding:4px 8px;
+  border-radius:999px;
+  font-style:normal;
+  font-size:10px;
+  font-weight:900;
+  letter-spacing:.01em;
+}
+.rank-roast-1{
+  color:#7a5200;
+  background:linear-gradient(135deg,#fff1a8,#ffd35c);
+  box-shadow:0 5px 14px rgba(232,177,27,.22);
+}
+.rank-roast-2{color:#704214;background:#ffe4bd}
+.rank-roast-3{color:#8f3131;background:#ffd8d8}
+.rank-roast-4{color:#69386f;background:#f0d6ff}
+.final-rank-place{
+  font-size:20px;
+}
+.final-rank.winner{
+  border:1px solid #f3c74b;
+  background:linear-gradient(135deg,#fffdf2,#fff5bf);
+  box-shadow:0 10px 28px rgba(226,178,33,.18);
+}
+.final-rank.winner::before{
+  content:"";
+  position:absolute;
+  inset:-120% -35%;
+  background:linear-gradient(115deg,transparent 42%,rgba(255,255,255,.86) 50%,transparent 58%);
+  animation:winnerShine 2.2s ease-in-out infinite;
+  pointer-events:none;
+}
+.champion-result{
+  position:relative;
+  overflow:hidden;
+}
+.champion-result::after{
+  content:"👑 ✨";
+  position:absolute;
+  top:14px;
+  right:18px;
+  font-size:28px;
+  animation:championFloat 1.5s ease-in-out infinite alternate;
+  filter:drop-shadow(0 4px 8px rgba(240,182,27,.22));
+  pointer-events:none;
+}
+.champion-result .result-icon{
+  animation:championPulse 1.35s ease-in-out infinite alternate;
+}
+.dark .final-rank.winner{
+  background:linear-gradient(135deg,#3a321b,#2b2940);
+  border-color:#8a742e;
+}
+@keyframes winnerShine{
+  0%,35%{transform:translateX(-45%) rotate(0deg)}
+  70%,100%{transform:translateX(55%) rotate(0deg)}
+}
+@keyframes championFloat{
+  from{transform:translateY(0) rotate(-4deg) scale(1)}
+  to{transform:translateY(5px) rotate(5deg) scale(1.08)}
+}
+@keyframes championPulse{
+  from{transform:scale(1);box-shadow:0 0 0 rgba(244,194,45,0)}
+  to{transform:scale(1.08);box-shadow:0 0 24px rgba(244,194,45,.35)}
+}
+@media (prefers-reduced-motion:reduce){
+  .final-rank.winner::before,
+  .champion-result::after,
+  .champion-result .result-icon{animation:none}
+}
+@media(max-width:720px){
+  .rank-roast{
+    font-size:9px;
+    padding:4px 7px;
+  }
+  .champion-result::after{
+    top:10px;
+    right:12px;
+    font-size:23px;
+  }
+}
