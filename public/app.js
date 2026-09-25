@@ -445,22 +445,44 @@
     }).join('');
   }
 
+  function finalRankLabel(index) {
+    return [
+      'Khôn hơn thằng top 2',
+      'Hơi ngu',
+      'Ngu',
+      'Siêu ngu',
+    ][index] || '';
+  }
+
   function renderRanking() {
     const wrap = $('#rankingWrap');
+    const resultCard = document.querySelector('#resultView .result');
     if (state.quizType !== 'room' || !state.room) {
       wrap.classList.add('hidden');
+      resultCard?.classList.remove('champion-result');
       return;
     }
+
     wrap.classList.remove('hidden');
     const list = rankedParticipants();
+    const myRank = list.findIndex(p => p.id === state.playerId);
+    resultCard?.classList.toggle('champion-result', myRank === 0);
+
     $('#ranking').innerHTML = list.length ? list.map((p, i) => {
       const status = p.status === 'finished'
         ? `✓ Đã nộp · ${formatTime(p.elapsedSeconds)}`
         : `Đang làm · ${p.answered || 0}/${p.total || state.quiz.length} câu`;
+      const label = finalRankLabel(i);
+      const medal = i === 0 ? '👑' : i === 1 ? '🥈' : i === 2 ? '🥉' : i === 3 ? '😵' : `#${i + 1}`;
+
       return `
-        <div class="rank-row ${p.id === state.playerId ? 'me' : ''}">
-          <b>#${i + 1}</b>
-          <span>${escapeHtml(p.name)}${p.id === state.playerId ? ' · Bạn' : ''}<small>${status}</small></span>
+        <div class="rank-row final-rank ${i === 0 ? 'winner' : ''} ${p.id === state.playerId ? 'me' : ''}">
+          <b class="final-rank-place">${medal}</b>
+          <span class="final-rank-person">
+            <strong>${escapeHtml(p.name)}${p.id === state.playerId ? ' · Bạn' : ''}</strong>
+            ${label ? `<em class="rank-roast rank-roast-${i + 1}">${escapeHtml(label)}</em>` : ''}
+            <small>${status}</small>
+          </span>
           <b>${p.score || 0}/${p.total || state.quiz.length}</b>
         </div>
       `;
