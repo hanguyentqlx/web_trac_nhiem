@@ -21,6 +21,7 @@
     get(payload) { return this.call('room:get', payload); }
     start(payload) { return this.call('room:start', payload); }
     check(payload) { return this.call('room:check', payload); }
+    answer(payload) { return this.call('room:answer', payload); }
     submit(payload) { return this.call('room:submit', payload); }
     leave(payload) { return this.call('room:leave', payload); }
   }
